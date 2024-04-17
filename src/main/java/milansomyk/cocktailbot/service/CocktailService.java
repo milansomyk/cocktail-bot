@@ -3,7 +3,6 @@ package milansomyk.cocktailbot.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import milansomyk.cocktailbot.entity.Cocktail;
-import milansomyk.cocktailbot.entity.Ingredient;
 import milansomyk.cocktailbot.repository.CocktailRepository;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +14,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CocktailService {
     private final CocktailRepository cocktailRepository;
-    private final IngredientService ingredientService;
 
     public Cocktail parseStringAndSave(String cocktailInfo, String photoId) {
         Cocktail cocktail = new Cocktail();
@@ -26,9 +24,7 @@ public class CocktailService {
         }
         cocktail.setName(split[1]);
 
-        String[] ingredients = split[2].split(",");
-        List<Ingredient> ingredientList = ingredientService.parseAndSaveAll(ingredients);
-        cocktail.setIngredients(ingredientList);
+        cocktail.setIngredients(split[2]);
 //        if(ingredientList == null){
 //            return null;
 //        }
@@ -52,6 +48,15 @@ public class CocktailService {
             return null;
         }
         return cocktailList;
+    }
+    public Cocktail getByCocktailName(String cocktailName){
+        Cocktail cocktail = null;
+        try {
+            cocktail = cocktailRepository.findCocktailByName(cocktailName).orElse(null);
+        } catch (Exception e){
+            log.error(e.getMessage());
+        }
+        return cocktail;
     }
 
 }

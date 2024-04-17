@@ -14,11 +14,15 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
 import java.io.IOException;
@@ -26,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+
+import static java.lang.Math.toIntExact;
 
 @Component
 @RequiredArgsConstructor
@@ -50,10 +56,61 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
 
     @Override
     public void consume(Update update) {
-        Long chatId = update.getMessage().getChatId();
+        Long chatId = null;
         SendMessage message = null;
         List<SendMessage> messages = new ArrayList<>();
-        if (update.getMessage().hasPhoto()&&update.getMessage().getCaption().contains("/addCocktail")) {
+        if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().startsWith("/editCocktail")) {
+            if (update.hasMessage()) {
+                chatId = update.getMessage().getChatId();
+
+                User foundUser = userService.getById(chatId);
+                if (foundUser == null) {
+                    log.error("Error when trying to find user with this id: {}", chatId);
+                    messages.add(new SendMessage(chatId.toString(), "Не авторизований користувач!"));
+                    telegramClientService.sendMessages(messages);
+                    return;
+                }
+                if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
+            }
+            String[] text = update.getMessage().getText().split(" ");
+            if (text.length != 2) {
+                SendMessage sendMessage = new SendMessage(chatId.toString(), "Не дотримано форматування зміни коктейлю! Ось приклад, як це робити правильно: `/editCocktail 'назва коктейлю'`");
+                sendMessage.setParseMode("MarkDown");
+                telegramClientService.sendMessage(sendMessage);
+                return;
+            }
+            Cocktail byCocktailName = cocktailService.getByCocktailName(text[1]);
+            if (byCocktailName == null) {
+                telegramClientService.sendMessage(chatId.toString(), "Коктейль не знайдено!");
+                return;
+            }
+            SendPhoto sendPhoto = SendPhoto.builder()
+                    .chatId(chatId.toString())
+                    .caption(byCocktailName.toVisualGoodString())
+                    .photo(new InputFile(byCocktailName.getPhotoId()))
+                    .replyMarkup(
+                            InlineKeyboardMarkup.builder()
+                                    .keyboardRow(
+                                            new InlineKeyboardRow(
+                                                    InlineKeyboardButton.builder().text("Оновити").callbackData("update_cocktail" +
+                                                            "").build
+                                                            (),
+                                                    InlineKeyboardButton.builder().text("Не оновляти").callbackData("not_update_cocktail").build()
+                                            ))
+                                    .build())
+                    .build();
+            telegramClientService.sendPhoto(sendPhoto);
+        } else if (update.hasCallbackQuery()) {
+            String data = update.getCallbackQuery().getData();
+            long message_id = update.getCallbackQuery().getMessage().getMessageId();
+            long chat_id = update.getCallbackQuery().getMessage().getChatId();
+            if (data.equals("update_cocktail")) {
+                EditMessageCaption newCaption = EditMessageCaption.builder().chatId(chat_id).messageId(toIntExact(message_id)).caption("Оновлення скоро будуть доступні!").build();
+                telegramClientService.sendCaption(newCaption);
+            }
+        }
+        if (update.getMessage().hasPhoto() && update.getMessage().getCaption().contains("/addCocktail")) {
+            chatId = update.getMessage().getChatId();
             User foundUser = userService.getById(chatId);
             if (foundUser == null) {
                 log.error("Error when trying to find user with this id: {}", chatId);
@@ -67,7 +124,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                     .map(PhotoSize::getFileId)
                     .orElse("");
             Cocktail cocktail = new Cocktail();
-            cocktail = cocktailService.parseStringAndSave(update.getMessage().getCaption(),photoId);
+            cocktail = cocktailService.parseStringAndSave(update.getMessage().getCaption(), photoId);
 
             if (cocktail == null) {
                 log.error("Exception when parsing cocktail from string: {}", update.getMessage().getCaption());
@@ -79,18 +136,14 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
             return;
 
         }
-        if (!(update.hasMessage() && update.getMessage().hasText())) {
-            log.error("No text message received!");
-            return;
-        }
         String messageText = update.getMessage().getText();
         String lngCode = update.getMessage().getFrom().getLanguageCode();
         org.telegram.telegrambots.meta.api.objects.User updateUser = update.getMessage().getFrom();
 
 
-
         //ADMIN:
-        if(messageText.contains("/addManager")){
+        if (update.hasMessage() && update.getMessage().hasText() && messageText.contains("/addManager")) {
+            chatId = update.getMessage().getChatId();
             User foundUser = userService.getById(chatId);
             if (foundUser == null) {
                 log.error("Error when trying to find user with this id: {}", chatId);
@@ -105,35 +158,38 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 usernameList.add(usernameArray[i]);
             }
             boolean isError = userService.updateUserToManagerByUsername(usernameList);
-            if(isError){
-                message = new SendMessage(chatId.toString(),"Error when trying to update this users to Role.MANAGER!");
-            }else{
-                message = new SendMessage(chatId.toString(),"Users successfully promoted to Role.MANAGER!");
+            if (isError) {
+                message = new SendMessage(chatId.toString(), "Error when trying to update this users to Role.MANAGER!");
+            } else {
+                message = new SendMessage(chatId.toString(), "Users successfully promoted to Role.MANAGER!");
             }
             telegramClientService.sendMessage(message);
             return;
         }
-        if(messageText.equals("/allUsers")){
+        if (update.hasMessage() && update.getMessage().hasText() && messageText.equals("/allUsers")) {
+            chatId = update.getMessage().getChatId();
             List<User> allUsers = userService.findAllUsers();
-            if(allUsers.isEmpty()){
-                message = new SendMessage(chatId.toString(),"Error while trying to find all users!");
-            }else{
+            if (allUsers.isEmpty()) {
+                message = new SendMessage(chatId.toString(), "Error while trying to find all users!");
+            } else {
                 List<String> usernameList = allUsers.stream().map(User::getUsername).toList();
                 StringBuilder stringBuilder = new StringBuilder();
                 for (String username : usernameList) {
                     stringBuilder.append("`").append(username).append("` ");
                 }
-                SendMessage sendMessage = new SendMessage(chatId.toString(),stringBuilder.toString());
+                SendMessage sendMessage = new SendMessage(chatId.toString(), stringBuilder.toString());
                 sendMessage.setParseMode("MarkDown");
-                message=sendMessage;
+                message = sendMessage;
             }
             telegramClientService.sendMessage(message);
             return;
 
         }
-
+        if (!(update.hasMessage() && update.getMessage().hasText()))
+            return;
         switch (messageText) {
             case "/start": {
+                chatId = update.getMessage().getChatId();
                 User foundUser = userService.getById(chatId);
                 if (!(foundUser == null)) {
                     message = new SendMessage(chatId.toString(), "Ви вже авторизований користувач!");
@@ -150,6 +206,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             }
             case "/order": {
+                chatId = update.getMessage().getChatId();
                 SendMessage sendMessage = new SendMessage(chatId.toString(), "Here is menu of cocktails:");
                 List<Cocktail> allCocktails = cocktailService.getAllCocktails();
                 List<KeyboardRow> keyboardRows = new ArrayList<>();
@@ -168,6 +225,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 break;
             }
             case "/hide": {
+                chatId = update.getMessage().getChatId();
                 SendMessage sendMessage = SendMessage.builder().chatId(chatId.toString()).text("Меню сховано!").replyMarkup(new ReplyKeyboardRemove(true)).build();
             }
             default:
@@ -182,8 +240,9 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
 
 
     }
+
     @PreDestroy
-    public void onDestroy(){
+    public void onDestroy() {
         telegramClientService.notifyAdmin("Бот тимчасово вимкнено!");
         telegramClientService.notifyAllManagers("Бот тимчасово вимкнено!");
     }
