@@ -12,6 +12,7 @@ import java.util.List;
 @Data
 @RequiredArgsConstructor
 @AllArgsConstructor
+@SQLInsert(sql = "UPDATE ON DUPLICATE KEY")
 public class Ingredient {
     @Id
     @GeneratedValue

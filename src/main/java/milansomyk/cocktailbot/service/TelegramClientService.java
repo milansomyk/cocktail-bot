@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
@@ -17,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class TelegramClientService {
+    private final UserService userService;
     TelegramClient telegramClient = new OkHttpTelegramClient("7175987391:AAFJnoow8hIKmXe0UhBhL0xm-LLJ4_6bwhM");
 
     public void sendMessage(String chatId,String messageText) {
@@ -43,6 +45,15 @@ public class TelegramClientService {
             e.printStackTrace();
         }
     }
+    public void sendPhotos(List<SendPhoto> photos){
+        try {
+            for (SendPhoto sendPhoto : photos) {
+                telegramClient.execute(sendPhoto);
+            }
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
 
     public void notifyAdmin(String messageText) {
         try {
@@ -52,7 +63,10 @@ public class TelegramClientService {
         }
     }
 
-    public void notifyAllManagers(List<Long> managerIdList, String messageText) {
+    public void notifyAllManagers(String messageText) {
+        List<User> allManagers = userService.findAllManagers();
+        if(allManagers.isEmpty()) return;
+        List<Long> managerIdList = allManagers.stream().map(User::getId).toList();
         try {
             for (Long aLong : managerIdList) {
                 telegramClient.execute(new SendMessage(aLong.toString(), messageText));

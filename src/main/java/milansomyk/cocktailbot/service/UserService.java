@@ -19,7 +19,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class UserService {
-    private final TelegramClientService telegramClientService;
     private final UserRepository userRepository;
     public User getById(long id){
         User foundUser = null;
@@ -55,5 +54,24 @@ public class UserService {
             return null;
         }
         return managers;
+    }
+    public boolean updateUserToManagerByUsername(List<String> usernameList){
+        try {
+            userRepository.updateUserToManagerByUsername(usernameList);
+        }catch (Exception e){
+            log.error("Error when trying to update User to Role.MANAGER! Error:{}",e.getMessage());
+            return true;
+        }
+        return false;
+    }
+    public List<User> findAllUsers(){
+        List<User> userList = new ArrayList<>();
+        try {
+            userList = userRepository.findAll();
+        }catch (Exception e){
+            log.error("Exception while trying to find all users! Error: {}",e.getMessage());
+            return null;
+        }
+        return userList;
     }
 }

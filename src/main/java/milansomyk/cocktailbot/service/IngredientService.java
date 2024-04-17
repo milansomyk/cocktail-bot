@@ -44,7 +44,7 @@ public class IngredientService {
         }
         List<Ingredient> ingredientList = new ArrayList<>();
         for (String ingredient : ingredientNames) {
-            ingredientList.add(new Ingredient().setNameGetValue(StringUtils.deleteWhitespace(ingredient.toLowerCase())));
+            ingredientList.add(new Ingredient().setNameGetValue(StringUtils.deleteWhitespace(ingredient.toLowerCase())) );
         }
 //        try {
 //            ingredientList = ingredientRepository.saveAll(ingredientList);
@@ -52,11 +52,12 @@ public class IngredientService {
 //            log.error("Exception while saving all ingredients! Error: {}", e.getMessage());
 //            return null;
 //        }
-        ingredientList = ingredientCustomRepository.replaceAllIngredients(ingredientList);
-        if(ingredientList.isEmpty()){
+        ingredientCustomRepository.replaceAllIngredients(ingredientList);
+        List<Ingredient> byNameIn = ingredientRepository.findByNameIn(ingredientList.stream().map(Ingredient::getName).toList());
+        if(byNameIn.isEmpty()){
             log.error("Saved List<Ingredient> is null! List:{}",ingredientList);
             return null;
         }
-        return ingredientList;
+        return byNameIn;
     }
 }
