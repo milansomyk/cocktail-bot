@@ -50,9 +50,9 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
         telegramClientService.notifyAdmin("Телеграм бот знову працює!");
         telegramClientService.notifyAllManagers("Телеграм бот знову працює! Зараз над ним проводяться роботи! Можете потестувати різні функції і надіслати фідбек @milansomyk");
     }
-
     @Override
     public void consume(Update update) {
+        System.out.println("update income!");
         if (update.hasMessage()) {
             handleIncomingMessage(update.getMessage());
         } else if (update.hasCallbackQuery()) {
@@ -61,7 +61,6 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     private void handleIncomingMessage(Message inputMessage) {
-        MenuButton menuButton;
         if (!inputMessage.hasText()) {
             return;
         }
@@ -183,11 +182,11 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                     userService.createUser(user);
                     SendMessage sendMessage = new SendMessage(chatId.toString(), EmojiParser.parseToUnicode("Привіт!\n\n" +
                             "Я телеграм бот, через який можна замовляти коктейлі! :cocktail: \n" +
-                            "Я знаходжусь лише на стадії розробки \uD83D\uDE0A, але вже можу показувати список усіх наявних коктейлів, можу приймати замовлення і зберігати список ваших улюблених напоїв! ❤\uFE0F"+
+                            "Я знаходжусь лише на стадії розробки \uD83D\uDE0A, але вже можу показувати список усіх наявних коктейлів, можу приймати замовлення і зберігати список ваших улюблених напоїв! ❤\uFE0F" +
                             "Натисніть кнопку 'Замовити', щоб отримати список коктейлів, які є у наявності у бармена!"));
                     sendMessage.setReplyMarkup(
                             InlineKeyboardMarkup.builder()
-                                    .keyboardRow(new InlineKeyboardRow(InlineKeyboardButton.builder().text("Замовити коктейль").callbackData("order_cocktail").build()))
+                                    .keyboardRow(new InlineKeyboardRow(InlineKeyboardButton.builder().text("Замовити коктейль").callbackData("order_cocktail").url("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk").build()))
                                     .build()
                     );
                     messages.add(sendMessage);

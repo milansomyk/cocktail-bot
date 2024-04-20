@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import milansomyk.cocktailbot.constants.Constants;
 import milansomyk.cocktailbot.entity.User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
@@ -21,7 +22,9 @@ import java.util.List;
 @Slf4j
 public class TelegramClientService {
     private final UserService userService;
-    TelegramClient telegramClient = new OkHttpTelegramClient("7175987391:AAFJnoow8hIKmXe0UhBhL0xm-LLJ4_6bwhM");
+    @Value("${TOKEN}")
+    private String token;
+    TelegramClient telegramClient = new OkHttpTelegramClient("6774181756:AAEDUqvHUzt_yxNFij-mfvKLJ8RhwT50z9s");
 
     public void sendMessage(String chatId, String messageText) {
         try {
