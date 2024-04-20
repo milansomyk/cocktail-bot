@@ -1,5 +1,6 @@
 package milansomyk.cocktailbot.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import milansomyk.cocktailbot.constants.Constants;
@@ -24,7 +25,11 @@ public class TelegramClientService {
     private final UserService userService;
     @Value("${TOKEN}")
     private String token;
-    TelegramClient telegramClient = new OkHttpTelegramClient("6774181756:AAEDUqvHUzt_yxNFij-mfvKLJ8RhwT50z9s");
+    TelegramClient telegramClient;
+    @PostConstruct
+    public void init(){
+        telegramClient = new OkHttpTelegramClient(token);
+    }
 
     public void sendMessage(String chatId, String messageText) {
         try {
