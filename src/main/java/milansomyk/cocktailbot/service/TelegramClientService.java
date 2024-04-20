@@ -8,7 +8,7 @@ import milansomyk.cocktailbot.entity.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
-import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethodBoolean;
 import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethodSerializable;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
@@ -39,10 +39,18 @@ public class TelegramClientService {
         }
     }
 
+
     public void sendMessage(SendMessage sendMessage) {
         try {
             telegramClient.execute(sendMessage);
         } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
+    }
+    public void sendMethod(BotApiMethodBoolean botApiMethodBoolean){
+        try{
+            telegramClient.execute(botApiMethodBoolean);
+        }catch (Exception e){
             e.printStackTrace();
         }
     }

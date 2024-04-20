@@ -12,6 +12,7 @@ import milansomyk.cocktailbot.service.TelegramClientService;
 import milansomyk.cocktailbot.service.UserService;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
+import org.telegram.telegrambots.meta.api.methods.menubutton.SetChatMenuButton;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
@@ -19,8 +20,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.menubutton.MenuButton;
-import org.telegram.telegrambots.meta.api.objects.menubutton.MenuButtonCommands;
+import org.telegram.telegrambots.meta.api.objects.menubutton.MenuButtonWebApp;
 import org.telegram.telegrambots.meta.api.objects.message.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
@@ -28,6 +28,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRem
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardRow;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import org.telegram.telegrambots.meta.api.objects.webapp.WebAppInfo;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -44,7 +45,6 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     private final CocktailService cocktailService;
     private final TelegramClientService telegramClientService;
     public HashMap<String, List<Integer>> userOrder;
-
     @PostConstruct
     public void init() {
         telegramClientService.notifyAdmin("Телеграм бот знову працює!");
@@ -52,7 +52,6 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     }
     @Override
     public void consume(Update update) {
-        System.out.println("update income!");
         if (update.hasMessage()) {
             handleIncomingMessage(update.getMessage());
         } else if (update.hasCallbackQuery()) {
@@ -175,20 +174,22 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!(foundUser == null)) {
                     messages.add(new SendMessage(chatId.toString(), "Ви вже авторизований користувач!"));
                 } else {
-                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode, Role.USER);
+                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode,null,null,null, Role.USER);
                     if (chatId == 288636429) {
                         user.setRole(Role.ADMIN);
                     }
                     userService.createUser(user);
                     SendMessage sendMessage = new SendMessage(chatId.toString(), EmojiParser.parseToUnicode("Привіт!\n\n" +
                             "Я телеграм бот, через який можна замовляти коктейлі! :cocktail: \n" +
-                            "Я знаходжусь лише на стадії розробки \uD83D\uDE0A, але вже можу показувати список усіх наявних коктейлів, можу приймати замовлення і зберігати список ваших улюблених напоїв! ❤\uFE0F" +
-                            "Натисніть кнопку 'Замовити', щоб отримати список коктейлів, які є у наявності у бармена!"));
+                            "Я знаходжусь лише на стадії розробки \uD83D\uDE0A, але вже можу показувати список усіх наявних коктейлів, можу приймати замовлення і зберігати список ваших улюблених напоїв! ❤\uFE0F\n\n" +
+                            "Натисніть кнопку *Продовжити*, щоб почати роботу зі мною!"));
                     sendMessage.setReplyMarkup(
                             InlineKeyboardMarkup.builder()
-                                    .keyboardRow(new InlineKeyboardRow(InlineKeyboardButton.builder().text("Замовити коктейль").callbackData("order_cocktail").url("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk").build()))
+                                    .keyboardRow(new InlineKeyboardRow(InlineKeyboardButton.builder().text("Продовжити").callbackData("main_menu").build()))
                                     .build()
                     );
+                    sendMessage.enableWebPagePreview();
+                    sendMessage.setParseMode("MarkDown");
                     messages.add(sendMessage);
                 }
                 telegramClientService.sendMessages(messages);
@@ -229,13 +230,25 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     private void handleButtonClick(Update update) {
         String data = update.getCallbackQuery().getData();
         long message_id = update.getCallbackQuery().getMessage().getMessageId();
-        long chat_id = update.getCallbackQuery().getMessage().getChatId();
+        long chatId = update.getCallbackQuery().getMessage().getChatId();
         if (data.equals("update_cocktail")) {
-            EditMessageCaption newCaption = EditMessageCaption.builder().chatId(chat_id).messageId(toIntExact(message_id)).caption("Оновлення скоро будуть доступні!").build();
+            EditMessageCaption newCaption = EditMessageCaption.builder().chatId(chatId).messageId(toIntExact(message_id)).caption("Оновлення скоро будуть доступні!").build();
             telegramClientService.sendCaption(newCaption);
         }
-        if (data.equals("order_cocktail")) {
-            EditMessageText newText = EditMessageText.builder().chatId(chat_id).messageId(toIntExact(message_id)).text("Ось коктейлі:").build();
+        if (data.equals("main_menu")) {
+            User foundUser = userService.getById(chatId);
+            if(foundUser==null) return;
+            MenuButtonWebApp menuButtonWebApp = new MenuButtonWebApp("Меню коктейлів",new WebAppInfo("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk"));
+            telegramClientService.sendMethod(SetChatMenuButton.builder().chatId(chatId).menuButton(menuButtonWebApp).build());
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Ваш аккаунт:\n\nЗаборгованість \uD83D\uDCB0:\n");
+            stringBuilder.append(foundUser.getBorrowed()).append(" грн");
+            EditMessageText newText = EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(toIntExact(message_id))
+                    .text(stringBuilder.toString())
+                    .parseMode("MarkDown")
+                    .build();
             telegramClientService.telegramSend(newText);
         }
     }
