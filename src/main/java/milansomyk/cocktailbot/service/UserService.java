@@ -3,17 +3,13 @@ package milansomyk.cocktailbot.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import milansomyk.cocktailbot.Role;
-import milansomyk.cocktailbot.constants.Constants;
 import milansomyk.cocktailbot.entity.User;
 import milansomyk.cocktailbot.repository.UserRepository;
-import org.apache.tomcat.util.bcel.Const;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service(value = "userService")
 @RequiredArgsConstructor
@@ -21,7 +17,7 @@ import java.util.Optional;
 public class UserService {
     private final UserRepository userRepository;
     public User getById(long id){
-        User foundUser = null;
+        User foundUser;
         try {
             foundUser = userRepository.findById(id).orElse(null);
         } catch (Exception e){
@@ -65,7 +61,7 @@ public class UserService {
         return false;
     }
     public List<User> findAllUsers(){
-        List<User> userList = new ArrayList<>();
+        List<User> userList;
         try {
             userList = userRepository.findAll();
         }catch (Exception e){

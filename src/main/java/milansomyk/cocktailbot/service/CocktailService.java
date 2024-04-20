@@ -6,7 +6,6 @@ import milansomyk.cocktailbot.entity.Cocktail;
 import milansomyk.cocktailbot.repository.CocktailRepository;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -40,7 +39,7 @@ public class CocktailService {
         return cocktail;
     }
     public List<Cocktail> getAllCocktails(){
-        List<Cocktail> cocktailList = new ArrayList<>();
+        List<Cocktail> cocktailList;
         try {
             cocktailList = cocktailRepository.findAll();
         } catch (Exception e){

@@ -4,9 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import milansomyk.cocktailbot.constants.Constants;
 import milansomyk.cocktailbot.entity.User;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
+import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.botapimethods.BotApiMethodSerializable;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
@@ -45,7 +46,13 @@ public class TelegramClientService {
             e.printStackTrace();
         }
     }
-
+    public void telegramSend(BotApiMethodSerializable method){
+        try {
+            telegramClient.execute(method);
+        } catch (TelegramApiException e){
+            e.printStackTrace();
+        }
+    }
     public void sendMessages(List<SendMessage> messages) {
         try {
             for (SendMessage sendMessage : messages) {
@@ -86,7 +93,7 @@ public class TelegramClientService {
 
     public void notifyAllManagers(String messageText) {
         List<User> allManagers = userService.findAllManagers();
-        if (allManagers.isEmpty()) return;
+        if (allManagers==null) return;
         List<Long> managerIdList = allManagers.stream().map(User::getId).toList();
         try {
             for (Long aLong : managerIdList) {

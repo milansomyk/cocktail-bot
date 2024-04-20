@@ -18,7 +18,9 @@ target/
 *.iws
 *.iml
 *.ipr
-
+# dotenv environment variables file
+.env
+.env.test
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
