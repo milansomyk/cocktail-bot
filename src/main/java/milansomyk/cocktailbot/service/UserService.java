@@ -2,7 +2,7 @@ package milansomyk.cocktailbot.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import milansomyk.cocktailbot.Role;
+import milansomyk.cocktailbot.constants.Role;
 import milansomyk.cocktailbot.entity.User;
 import milansomyk.cocktailbot.repository.UserRepository;
 import org.springframework.stereotype.Service;

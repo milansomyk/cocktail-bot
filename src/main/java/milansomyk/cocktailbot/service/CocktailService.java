@@ -17,17 +17,14 @@ public class CocktailService {
     public Cocktail parseStringAndSave(String cocktailInfo, String photoId) {
         Cocktail cocktail = new Cocktail();
         String[] split = cocktailInfo.split("\n");
-        if (split.length != 4) {
-            log.info("Exception while parsing cocktail info!");
+
+        if (split.length != 3) {
+            log.info("Не дотримано форматування при додаванні коктейлів!");
             return null;
         }
-        cocktail.setName(split[1]);
-
-        cocktail.setIngredients(split[2]);
-//        if(ingredientList == null){
-//            return null;
-//        }
-        String price = split[3];
+        cocktail.setName(split[0]);
+        cocktail.setIngredients(split[1]);
+        String price = split[2];
         cocktail.setPrice(Double.valueOf(price));
         cocktail.setPhotoId(photoId);
         cocktail.setAvailable(false);

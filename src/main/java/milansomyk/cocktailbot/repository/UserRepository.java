@@ -1,6 +1,6 @@
 package milansomyk.cocktailbot.repository;
 
-import milansomyk.cocktailbot.Role;
+import milansomyk.cocktailbot.constants.Role;
 import milansomyk.cocktailbot.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

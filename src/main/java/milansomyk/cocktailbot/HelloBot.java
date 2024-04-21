@@ -5,6 +5,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import milansomyk.cocktailbot.constants.Role;
+import milansomyk.cocktailbot.constants.Status;
 import milansomyk.cocktailbot.entity.Cocktail;
 import milansomyk.cocktailbot.entity.User;
 import milansomyk.cocktailbot.service.CocktailService;
@@ -15,7 +17,7 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.menubutton.SetChatMenuButton;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendPhoto;
-import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageCaption;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.PhotoSize;
@@ -44,7 +46,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     private final UserService userService;
     private final CocktailService cocktailService;
     private final TelegramClientService telegramClientService;
-    public HashMap<String, List<Integer>> userOrder;
+    public HashMap<String, Status> usersStatus = new HashMap<>();
 
     @PostConstruct
     public void init() {
@@ -118,7 +120,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!(foundUser == null)) {
                     messages.add(new SendMessage(chatId.toString(), "Ви вже авторизований користувач!"));
                 } else {
-                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode, null, null, null, Role.USER);
+                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode, 0, 0, null, Role.USER);
                     if (chatId == 288636429) {
                         user.setRole(Role.ADMIN);
                     }
@@ -178,12 +180,21 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
         if (data.equals("main_menu")) {
             User foundUser = userService.getById(chatId);
             if (foundUser == null) return;
-
             MenuButtonWebApp menuButtonWebApp = new MenuButtonWebApp("Меню коктейлів", new WebAppInfo("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk"));
             telegramClientService.sendMethod(SetChatMenuButton.builder().chatId(chatId).menuButton(menuButtonWebApp).build());
             StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append("Ваш аккаунт:\n\nЗаборгованість \uD83D\uDCB0:\n");
-            stringBuilder.append(foundUser.getBorrowed()).append(" грн");
+            stringBuilder.append("Ваш аккаунт:\n");
+            stringBuilder.append("*");
+            if(foundUser.getFirstName()!=null){
+                stringBuilder.append(foundUser.getFirstName()).append(" ");
+            }
+            if(foundUser.getLastName()!=null){
+                stringBuilder.append(foundUser.getLastName()).append(" ");
+            }
+            stringBuilder.append("(").append(foundUser.getUsername()).append(")");
+            stringBuilder.append("*");
+            stringBuilder.append("\n\nЗаборгованість\uD83D\uDCB0:\n");
+            stringBuilder.append(0).append(" грн");
             EditMessageText newText = EditMessageText.builder()
                     .chatId(chatId)
                     .messageId(toIntExact(message_id))
@@ -230,35 +241,38 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                     .build();
             telegramClientService.telegramSend(newText);
         }
-//        if (data.equals("manager_add_cocktail")){
-//            User foundUser = userService.getById(chatId);
-//            if (foundUser == null) {
-//                return;
-//            }
-//            if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
-//            List<PhotoSize> photos = inputMessage.getPhoto();
-//            String photoId = photos.stream().min(Comparator.comparing(PhotoSize::getFileSize))
-//                    .map(PhotoSize::getFileId)
-//                    .orElse("");
-//            Cocktail cocktail;
-//            cocktail = cocktailService.parseStringAndSave(inputMessage.getCaption(), photoId);
-//
-//            if (cocktail == null) {
-//                log.error("Exception when parsing cocktail from string: {}", inputMessage.getCaption());
-//                messages.add(new SendMessage(chatId.toString(), "Не надано усієї інформації про коктейль або виникла інша помилка при додаванні!"));
-//                telegramClientService.sendMessages(messages);
-//                return;
-//            }
-//            telegramClientService.sendMessage(chatId.toString(), "Коктейль створено! Можете переглянути його в /order");
-//            return;
-//        }
+        if(data.equals("manager_add_cocktail")){
+            User foundUser = userService.getById(chatId);
+            if (foundUser == null) {
+                return;
+            }
+            telegramClientService.sendMethod(SetChatMenuButton.builder().chatId(chatId).menuButton(null).build());
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Додавання коктейлю!\n\nЩоб додати коктейль, надішліть фото коктейлю, та у описі опишіть його згідно форматування:\n\n");
+            stringBuilder.append("`<Назва коктейлю>\n<Інградієнти>\n<Ціна>`\n\n");
+            stringBuilder.append("\nЯкщо ви натиснули помилково, або вже не бажаєте змінювати коктейль, то натисніть кнопку *Назад*");
+            usersStatus.put(foundUser.getId().toString(),Status.WAIT_FOR_INFO);
+            EditMessageText newText = EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(toIntExact(message_id))
+                    .text(stringBuilder.toString())
+                    .replyMarkup(
+                            InlineKeyboardMarkup.builder()
+                                    .keyboardRow(
+                                            new InlineKeyboardRow(InlineKeyboardButton.builder().text("Назад").callbackData("main_menu").build()))
+                                    .build()
+                    )
+                    .parseMode("MarkDown")
+                    .build();
+            telegramClientService.telegramSend(newText);
+        }
+
     }
 
     private void handleIncomingPhoto(Message inputMessage) {
         Long chatId = inputMessage.getChatId();
-        SendMessage message;
         List<SendMessage> messages = new ArrayList<>();
-        if (inputMessage.hasPhoto() && inputMessage.getCaption() != null && inputMessage.getCaption().contains("/addCocktail")) {
+        if (inputMessage.hasPhoto() && inputMessage.getCaption() != null) {
             User foundUser = userService.getById(chatId);
             if (foundUser == null) {
                 messages.add(new SendMessage(chatId.toString(), "Не авторизований користувач!"));
@@ -266,6 +280,10 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 return;
             }
             if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
+            if(usersStatus.get(foundUser.getId().toString())!=Status.WAIT_FOR_INFO){
+                DeleteMessage deleteMessage = DeleteMessage.builder().chatId(chatId).messageId(inputMessage.getMessageId()).build();
+                telegramClientService.sendMethod(deleteMessage);
+            }
             List<PhotoSize> photos = inputMessage.getPhoto();
             String photoId = photos.stream().min(Comparator.comparing(PhotoSize::getFileSize))
                     .map(PhotoSize::getFileId)
