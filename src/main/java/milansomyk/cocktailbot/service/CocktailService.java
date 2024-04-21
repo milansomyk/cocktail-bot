@@ -30,6 +30,7 @@ public class CocktailService {
         String price = split[3];
         cocktail.setPrice(Double.valueOf(price));
         cocktail.setPhotoId(photoId);
+        cocktail.setAvailable(false);
         try {
             cocktail = cocktailRepository.save(cocktail);
         }catch (Exception e){

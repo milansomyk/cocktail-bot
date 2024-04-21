@@ -45,17 +45,21 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
     private final CocktailService cocktailService;
     private final TelegramClientService telegramClientService;
     public HashMap<String, List<Integer>> userOrder;
+
     @PostConstruct
     public void init() {
         telegramClientService.notifyAdmin("Телеграм бот знову працює!");
         telegramClientService.notifyAllManagers("Телеграм бот знову працює! Зараз над ним проводяться роботи! Можете потестувати різні функції і надіслати фідбек @milansomyk");
     }
+
     @Override
     public void consume(Update update) {
-        if (update.hasMessage()) {
+        if (update.hasMessage() && update.getMessage().hasText()) {
             handleIncomingMessage(update.getMessage());
         } else if (update.hasCallbackQuery()) {
             handleButtonClick(update);
+        } else if (update.hasMessage() && update.getMessage().hasPhoto()) {
+            handleIncomingPhoto(update.getMessage());
         }
     }
 
@@ -66,66 +70,6 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
         SendMessage message;
         List<SendMessage> messages = new ArrayList<>();
         Long chatId = inputMessage.getChatId();
-        if (inputMessage.getText().startsWith("/editCocktail")) {
-            User foundUser = userService.getById(chatId);
-            if (foundUser == null) {
-                messages.add(new SendMessage(chatId.toString(), "Не авторизований користувач!"));
-                telegramClientService.sendMessages(messages);
-                return;
-            }
-            if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
-            String[] text = inputMessage.getText().split(" ");
-            if (text.length != 2) {
-                SendMessage sendMessage = new SendMessage(chatId.toString(), "Не дотримано форматування зміни коктейлю! Ось приклад, як це робити правильно: `/editCocktail 'назва коктейлю'`");
-                sendMessage.setParseMode("MarkDown");
-                telegramClientService.sendMessage(sendMessage);
-                return;
-            }
-            Cocktail byCocktailName = cocktailService.getByCocktailName(text[1]);
-            if (byCocktailName == null) {
-                telegramClientService.sendMessage(chatId.toString(), "Коктейль не знайдено!");
-                return;
-            }
-            SendPhoto sendPhoto = SendPhoto.builder()
-                    .chatId(chatId.toString())
-                    .caption(byCocktailName.toVisualGoodString())
-                    .photo(new InputFile(byCocktailName.getPhotoId()))
-                    .replyMarkup(
-                            InlineKeyboardMarkup.builder()
-                                    .keyboardRow(
-                                            new InlineKeyboardRow(
-                                                    InlineKeyboardButton.builder().text("Оновити").callbackData("update_cocktail").build
-                                                            (),
-                                                    InlineKeyboardButton.builder().text("Не оновляти").callbackData("not_update_cocktail").build()
-                                            ))
-                                    .build())
-                    .build();
-            telegramClientService.sendPhoto(sendPhoto);
-        }
-        if (inputMessage.hasPhoto() && inputMessage.getCaption().contains("/addCocktail")) {
-            User foundUser = userService.getById(chatId);
-            if (foundUser == null) {
-                messages.add(new SendMessage(chatId.toString(), "Не авторизований користувач!"));
-                telegramClientService.sendMessages(messages);
-                return;
-            }
-            if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
-            List<PhotoSize> photos = inputMessage.getPhoto();
-            String photoId = photos.stream().min(Comparator.comparing(PhotoSize::getFileSize))
-                    .map(PhotoSize::getFileId)
-                    .orElse("");
-            Cocktail cocktail;
-            cocktail = cocktailService.parseStringAndSave(inputMessage.getCaption(), photoId);
-
-            if (cocktail == null) {
-                log.error("Exception when parsing cocktail from string: {}", inputMessage.getCaption());
-                messages.add(new SendMessage(chatId.toString(), "Не надано усієї інформації про коктейль або виникла інша помилка при додаванні!"));
-                telegramClientService.sendMessages(messages);
-                return;
-            }
-            telegramClientService.sendMessage(chatId.toString(), "Коктейль створено! Можете переглянути його в /order");
-            return;
-        }
         if (inputMessage.getText().contains("/addManager")) {
             User foundUser = userService.getById(chatId);
             if (foundUser == null) {
@@ -174,7 +118,7 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                 if (!(foundUser == null)) {
                     messages.add(new SendMessage(chatId.toString(), "Ви вже авторизований користувач!"));
                 } else {
-                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode,null,null,null, Role.USER);
+                    User user = new User(chatId, updateUser.getFirstName(), updateUser.getLastName(), updateUser.getUserName(), lngCode, null, null, null, Role.USER);
                     if (chatId == 288636429) {
                         user.setRole(Role.ADMIN);
                     }
@@ -231,14 +175,11 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
         String data = update.getCallbackQuery().getData();
         long message_id = update.getCallbackQuery().getMessage().getMessageId();
         long chatId = update.getCallbackQuery().getMessage().getChatId();
-        if (data.equals("update_cocktail")) {
-            EditMessageCaption newCaption = EditMessageCaption.builder().chatId(chatId).messageId(toIntExact(message_id)).caption("Оновлення скоро будуть доступні!").build();
-            telegramClientService.sendCaption(newCaption);
-        }
         if (data.equals("main_menu")) {
             User foundUser = userService.getById(chatId);
-            if(foundUser==null) return;
-            MenuButtonWebApp menuButtonWebApp = new MenuButtonWebApp("Меню коктейлів",new WebAppInfo("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk"));
+            if (foundUser == null) return;
+
+            MenuButtonWebApp menuButtonWebApp = new MenuButtonWebApp("Меню коктейлів", new WebAppInfo("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk"));
             telegramClientService.sendMethod(SetChatMenuButton.builder().chatId(chatId).menuButton(menuButtonWebApp).build());
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("Ваш аккаунт:\n\nЗаборгованість \uD83D\uDCB0:\n");
@@ -249,7 +190,97 @@ public class HelloBot implements LongPollingSingleThreadUpdateConsumer {
                     .text(stringBuilder.toString())
                     .parseMode("MarkDown")
                     .build();
+            List<InlineKeyboardButton> inlineKeyboardButtonList = new ArrayList<>();
+
+            if (foundUser.getRole() == Role.MANAGER | foundUser.getRole()==Role.ADMIN) {
+                inlineKeyboardButtonList.add(InlineKeyboardButton.builder().text("Додати коктейль").callbackData("manager_add_cocktail").build());
+                inlineKeyboardButtonList.add(InlineKeyboardButton.builder().text("Змінити коктейль").callbackData("manager_edit_cocktail").build());
+            }
+            if (foundUser.getRole() == Role.ADMIN) {
+                inlineKeyboardButtonList.add(InlineKeyboardButton.builder().text("Усі користувачі").callbackData("admin_all_users").build());
+            }
+            newText.setReplyMarkup(
+                    InlineKeyboardMarkup.builder()
+                            .keyboardRow(
+                                    new InlineKeyboardRow(inlineKeyboardButtonList))
+                            .build()
+            );
             telegramClientService.telegramSend(newText);
+        }
+        if (data.equals("manager_edit_cocktail")) {
+            User foundUser = userService.getById(chatId);
+            if (foundUser == null) {
+                return;
+            }
+            MenuButtonWebApp menuButtonWebApp = new MenuButtonWebApp("Змінити коктейль", new WebAppInfo("https://65060d6a08aa414cc1900a70--zippy-blancmange-90bd0e.netlify.app/?language=uk"));
+            telegramClientService.sendMethod(SetChatMenuButton.builder().chatId(chatId).menuButton(menuButtonWebApp).build());
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Заміна коктейлю!\n\nЩоб змінити коктейль, його ціну або фото, перейдіть у Веб-інтерфейс за допомогою кнопки меню *Змінити коктейль*\nЯкщо ви натиснули помилково, або вже не бажаєте змінювати коктейль, то натисніть кнопку *Назад*");
+            EditMessageText newText = EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(toIntExact(message_id))
+                    .text(stringBuilder.toString())
+                    .replyMarkup(
+                            InlineKeyboardMarkup.builder()
+                                    .keyboardRow(
+                                            new InlineKeyboardRow(InlineKeyboardButton.builder().text("Назад").callbackData("main_menu").build()))
+                                    .build()
+                    )
+                    .parseMode("MarkDown")
+                    .build();
+            telegramClientService.telegramSend(newText);
+        }
+//        if (data.equals("manager_add_cocktail")){
+//            User foundUser = userService.getById(chatId);
+//            if (foundUser == null) {
+//                return;
+//            }
+//            if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
+//            List<PhotoSize> photos = inputMessage.getPhoto();
+//            String photoId = photos.stream().min(Comparator.comparing(PhotoSize::getFileSize))
+//                    .map(PhotoSize::getFileId)
+//                    .orElse("");
+//            Cocktail cocktail;
+//            cocktail = cocktailService.parseStringAndSave(inputMessage.getCaption(), photoId);
+//
+//            if (cocktail == null) {
+//                log.error("Exception when parsing cocktail from string: {}", inputMessage.getCaption());
+//                messages.add(new SendMessage(chatId.toString(), "Не надано усієї інформації про коктейль або виникла інша помилка при додаванні!"));
+//                telegramClientService.sendMessages(messages);
+//                return;
+//            }
+//            telegramClientService.sendMessage(chatId.toString(), "Коктейль створено! Можете переглянути його в /order");
+//            return;
+//        }
+    }
+
+    private void handleIncomingPhoto(Message inputMessage) {
+        Long chatId = inputMessage.getChatId();
+        SendMessage message;
+        List<SendMessage> messages = new ArrayList<>();
+        if (inputMessage.hasPhoto() && inputMessage.getCaption() != null && inputMessage.getCaption().contains("/addCocktail")) {
+            User foundUser = userService.getById(chatId);
+            if (foundUser == null) {
+                messages.add(new SendMessage(chatId.toString(), "Не авторизований користувач!"));
+                telegramClientService.sendMessages(messages);
+                return;
+            }
+            if (!(foundUser.getRole() == Role.MANAGER || foundUser.getRole() == Role.ADMIN)) return;
+            List<PhotoSize> photos = inputMessage.getPhoto();
+            String photoId = photos.stream().min(Comparator.comparing(PhotoSize::getFileSize))
+                    .map(PhotoSize::getFileId)
+                    .orElse("");
+            Cocktail cocktail;
+            cocktail = cocktailService.parseStringAndSave(inputMessage.getCaption(), photoId);
+
+            if (cocktail == null) {
+                log.error("Exception when parsing cocktail from string: {}", inputMessage.getCaption());
+                messages.add(new SendMessage(chatId.toString(), "Не надано усієї інформації про коктейль або виникла інша помилка при додаванні!"));
+                telegramClientService.sendMessages(messages);
+                return;
+            }
+            telegramClientService.sendMessage(chatId.toString(), "Коктейль створено! Можете переглянути його в /order");
+            return;
         }
     }
 

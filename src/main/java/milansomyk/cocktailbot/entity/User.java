@@ -22,7 +22,12 @@ public class User {
     Integer borrowed;
     Integer discount;
     @OneToMany
-    List<Order> orders;
+    @JoinTable(
+            name = "user_orders",
+            joinColumns = @JoinColumn(name="user_id"),foreignKey = @ForeignKey(name = "FK_USER_ORDERS_USER_ID"),
+            inverseJoinColumns = @JoinColumn(name="order_id"),inverseForeignKey = @ForeignKey(name = "FK_USER_ORDERS_ORDER_ID")
+    )
+    List<Orders> orders;
     @Enumerated(value = EnumType.STRING)
     Role role;
 
